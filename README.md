@@ -52,10 +52,10 @@ request, same as in the original two apps.
 
 ## Deploying to Vercel
 
-The root `vercel.json` routes every request to the Flask app, so the wind
-and solar dashboard share one deployment URL. The `api/index.py` file is
-the Vercel serverless entry point. Only the dashboard's required templates,
-static assets, model files, and datasets are included with the function.
+Vercel detects the Flask application in the root `app.py` file and routes
+the wind and solar dashboard through that single app and URL. The root
+`vercel.json` includes the templates, static assets, model files, and
+datasets needed by the app.
 Unused XGBoost and Matplotlib dependencies, model artifacts, and generated
 Python cache files are excluded to keep the serverless function within
 Vercel's bundle-size limit. Wind model comparison uses scikit-learn's
