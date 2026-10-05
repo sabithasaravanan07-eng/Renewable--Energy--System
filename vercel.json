@@ -7,7 +7,7 @@
   ],
   "functions": {
     "api/index.py": {
-      "includeFiles": "{templates/**,static/**,wind_app/config.py,wind_app/src/__init__.py,wind_app/src/data_preprocessing.py,wind_app/src/feature_engineering.py,wind_app/src/forecasting.py,wind_app/src/train_models.py,wind_app/src/utils.py,wind_app/src/wind_power.py,wind_app/data/raw/wind_dataset.csv,solar_app/modules/__init__.py,solar_app/modules/data_processing.py,solar_app/modules/energy_estimation.py,solar_app/modules/forecasting.py,solar_app/modules/input_handler.py,solar_app/modules/power_calculation.py,solar_app/modules/prediction.py,solar_app/modules/result_analysis.py,solar_app/modules/solar_prediction.py,solar_app/modules/weather_prediction.py,solar_app/data/historical_solar_data.csv,solar_app/models/*.joblib}"
+      "includeFiles": "{templates/**,static/**,wind_app/**,solar_app/**}"
     }
   }
 }
