@@ -1,0 +1,8 @@
+name: renewable-energy-dashboard
+metadata:
+  template: renewable-energy-dashboard@0.0.1-beta
+services:
+  web:
+    project: .
+    host: appservice
+    language: python

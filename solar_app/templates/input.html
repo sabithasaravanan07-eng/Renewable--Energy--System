@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}New Estimate{% endblock %}
+{% block content %}
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h1 class="h4 mb-3">Current-Conditions Estimate</h1>
+    <p class="text-muted">Enter the CURRENT/observed readings for a snapshot power and energy estimate. For
+      predicting a future date/time instead, use the <a href="{{ url_for('forecast') }}">Forecast</a> page, which
+      needs no readings at all.</p>
+
+    {% if errors %}
+    <div class="alert alert-danger">
+      <ul class="mb-0">
+        {% for err in errors %}<li>{{ err }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <form method="post" class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">Irradiance (W/m2)</label>
+        <input type="number" step="any" class="form-control" name="irradiance_w_m2" value="{{ form.get('irradiance_w_m2','') }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Ambient temperature (C)</label>
+        <input type="number" step="any" class="form-control" name="temperature_c" value="{{ form.get('temperature_c','') }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Humidity (%)</label>
+        <input type="number" step="any" class="form-control" name="humidity_percent" value="{{ form.get('humidity_percent','') }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Wind speed (km/h)</label>
+        <input type="number" step="any" class="form-control" name="wind_kmh" value="{{ form.get('wind_kmh','') }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Cloud cover (%)</label>
+        <input type="number" step="any" class="form-control" name="cloud_cover_percent" value="{{ form.get('cloud_cover_percent','') }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Panel area (m2)</label>
+        <input type="number" step="any" class="form-control" name="panel_area" value="{{ form.get('panel_area','') }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Efficiency (0-1)</label>
+        <input type="number" step="any" class="form-control" name="efficiency" value="{{ form.get('efficiency','') }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Operating hours</label>
+        <input type="number" step="any" class="form-control" name="operating_hours" value="{{ form.get('operating_hours','') }}" required>
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-primary">Calculate</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

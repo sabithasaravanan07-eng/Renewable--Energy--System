@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Results{% endblock %}
+{% block content %}
+{% if not result %}
+<div class="alert alert-info">No estimate yet. <a href="{{ url_for('input_page') }}">Run one now</a>.</div>
+{% else %}
+<div class="row g-4">
+  <div class="col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h5">Power &amp; Energy</h2>
+        <p class="mb-1">Predicted power (model): <strong>{{ result.predicted_power_w }} W</strong></p>
+        <p class="mb-1">Physical power (equation): <strong>{{ result.physical_power_w }} W</strong></p>
+        <p class="mb-1">Energy (model-based): <strong>{{ result.energy.energy_kwh }} kWh</strong></p>
+        <p class="mb-0">Energy (equation-based): <strong>{{ result.temperature_adjusted_energy.energy_kwh }} kWh</strong></p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h5">Solar &amp; Weather</h2>
+        <p class="mb-1">Effective irradiance: <strong>{{ result.solar.effective_irradiance_w_m2 }} W/m2</strong></p>
+        <p class="mb-1">Sky condition: <strong>{{ result.weather.sky_condition }}</strong></p>
+        <p class="mb-0 text-muted">{{ result.weather.note }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h2 class="h5">Observations</h2>
+        <ul>
+          {% for obs in result.analysis.observations %}<li>{{ obs }}</li>{% endfor %}
+        </ul>
+        <canvas id="resultChart" height="90"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const chartData = {{ result.analysis.chart_data | tojson }};
+new Chart(document.getElementById('resultChart'), {
+  type: 'bar',
+  data: {
+    labels: chartData.labels,
+    datasets: [{ label: 'W/m2', data: chartData.values, backgroundColor: ['#94a3b8', '#f59e0b'] }]
+  },
+  options: { plugins: { legend: { display: false } } }
+});
+</script>
+{% endif %}
+{% endblock %}

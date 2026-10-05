@@ -1,0 +1,19 @@
+{% extends 'index.html' %}
+
+{% block content %}
+<section class="panel summary">
+  <h2>Detailed Result</h2>
+  <div class="grid">
+    <div><strong>Requested Year:</strong> {{ result.year }}</div>
+    <div><strong>Period:</strong> {{ result.status }}</div>
+    <div><strong>Wind Speed:</strong> {{ '%.2f m/s'|format(result.wind_speed) if result.wind_speed is not none else 'N/A' }}</div>
+    <div><strong>Predicted Wind Speed:</strong> {{ '%.2f m/s'|format(result.predicted_wind_speed) if result.predicted_wind_speed is not none else 'N/A' }}</div>
+    <div><strong>Wind Power:</strong> {{ '%.2f W'|format(result.wind_power) }}</div>
+    <div><strong>Energy Output:</strong> {{ '%.2f kWh'|format(result.energy_output) }}</div>
+    <div><strong>Selected Model:</strong> {{ result.selected_model }}</div>
+    <div><strong>MAE:</strong> {{ '%.4f'|format(result.mae) }}</div>
+    <div><strong>RMSE:</strong> {{ '%.4f'|format(result.rmse) }}</div>
+    <div><strong>R²:</strong> {{ '%.4f'|format(result.r2) }}</div>
+  </div>
+</section>
+{% endblock %}

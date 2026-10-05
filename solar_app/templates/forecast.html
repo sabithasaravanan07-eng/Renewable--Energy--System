@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Forecast{% endblock %}
+{% block content %}
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <h1 class="h4 mb-2">Forecast from Historical Data</h1>
+    <p class="text-muted mb-0">This forecast is driven only by the <strong>date and time</strong> you choose. It
+      does not use a live sensor reading &mdash; instead a model learns the seasonal (month) and daily (hour)
+      pattern from {{ model_meta.history_rows }} hours of historical data
+      ({{ model_meta.history_range.start }} &rarr; {{ model_meta.history_range.end }}) and applies that pattern
+      to the future date/time you request.</p>
+  </div>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h5">Forecast a Specific Date &amp; Time</h2>
+        <p class="text-muted small">Pick any future date and time. Temperature, irradiance and expected output are
+          predicted purely from historical month/day/hour patterns.</p>
+        <form method="post" class="row g-3">
+          <input type="hidden" name="submit_mode" value="datetime">
+          <div class="col-12">
+            <label class="form-label">Future date &amp; time</label>
+            <input type="datetime-local" class="form-control" name="forecast_datetime"
+                   value="{{ form.get('forecast_datetime','') }}" required>
+          </div>
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary">Forecast this date/time</button>
+          </div>
+        </form>
+
+        {% if pinpoint_result %}
+        <hr>
+        <h3 class="h6">Result for {{ pinpoint_result.forecast_datetime | replace('T', ' ') }}</h3>
+        <table class="table table-sm">
+          <tbody>
+            <tr><th>Predicted temperature</th><td>{{ pinpoint_result.temperature_c }} &deg;C</td></tr>
+            <tr><th>Predicted irradiance</th><td>{{ pinpoint_result.irradiance_w_m2 }} W/m2</td></tr>
+            <tr><th>Expected output</th><td>{{ pinpoint_result.predicted_output_kw_per_kwp }} kW per kWp installed</td></tr>
+            <tr><th>Model used</th><td>{{ pinpoint_result.model_name }}</td></tr>
+          </tbody>
+        </table>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h5">Forecast a Future Period</h2>
+        <p class="text-muted small">Get an hourly outlook for the next 24 hours, 3 days, or 7 days, starting now.</p>
+        <form method="post" class="row g-3">
+          <input type="hidden" name="submit_mode" value="period">
+          <div class="col-8">
+            <select class="form-select" name="future_period">
+              <option value="24_hours" {% if form.get('future_period')=='24_hours' %}selected{% endif %}>Next 24 hours</option>
+              <option value="3_days" {% if form.get('future_period')=='3_days' %}selected{% endif %}>Next 3 days</option>
+              <option value="7_days" {% if form.get('future_period')=='7_days' %}selected{% endif %}>Next 7 days</option>
+            </select>
+          </div>
+          <div class="col-4">
+            <button type="submit" class="btn btn-primary w-100">Forecast</button>
+          </div>
+        </form>
+
+        {% if forecast_series %}
+        <hr>
+        <canvas id="forecastChart" height="140"></canvas>
+        <script>
+          const series = {{ forecast_series.points | tojson }};
+          new Chart(document.getElementById('forecastChart'), {
+            type: 'line',
+            data: {
+              labels: series.map(p => p.timestamp.replace('T', ' ')),
+              datasets: [
+                { label: 'Temperature (C)', data: series.map(p => p.temperature_c), yAxisID: 'y', borderColor: '#ef4444', tension: .3 },
+                { label: 'Irradiance (W/m2)', data: series.map(p => p.irradiance_w_m2), yAxisID: 'y1', borderColor: '#f59e0b', tension: .3 }
+              ]
+            },
+            options: {
+              scales: {
+                y: { type: 'linear', position: 'left', title: { display: true, text: 'C' } },
+                y1: { type: 'linear', position: 'right', title: { display: true, text: 'W/m2' }, grid: { drawOnChartArea: false } }
+              }
+            }
+          });
+        </script>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm mt-4">
+  <div class="card-body">
+    <h2 class="h5">Use Your Own Historical Data (optional)</h2>
+    <p class="text-muted small">By default the model learns from a persisted synthetic archive at
+      <code>data/historical_solar_data.csv</code>. Paste real past data instead (columns: timestamp,
+      temperature_c, irradiance_w_m2) to retrain the pattern for this session.</p>
+    <form method="post" class="row g-3">
+      <input type="hidden" name="submit_mode" value="retrain_from_csv">
+      <div class="col-12">
+        <textarea class="form-control" name="historical_csv" rows="5"
+          placeholder="timestamp,temperature_c,irradiance_w_m2&#10;2025-06-01 06:00,24.1,80&#10;2025-06-01 12:00,31.4,820">{{ form.get('historical_csv','') }}</textarea>
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-outline-secondary">Retrain from this data</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if history_preview %}
+<div class="card shadow-sm mt-4">
+  <div class="card-body">
+    <h2 class="h5">Historical Data Preview (last 24 hours on record)</h2>
+    <div class="table-responsive">
+      <table class="table table-sm">
+        <thead><tr><th>Timestamp</th><th>Temp (C)</th><th>Irradiance (W/m2)</th></tr></thead>
+        <tbody>
+          {% for row in history_preview %}
+          <tr><td>{{ row.timestamp }}</td><td>{{ '%.1f' % row.temperature_c }}</td><td>{{ '%.0f' % row.irradiance_w_m2 }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Renewable Energy Dashboard</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">⚡</span>
+    <div>
+      <h1>Renewable Energy Dashboard</h1>
+      <p>Wind &amp; Solar forecasting, combined in one view</p>
+    </div>
+  </div>
+  <nav class="tabs">
+    <button type="button" class="tab-btn {{ 'active' if active_panel != 'solar' else '' }}" data-target="wind-panel">🌬️ Wind</button>
+    <button type="button" class="tab-btn {{ 'active' if active_panel == 'solar' else '' }}" data-target="solar-panel">☀️ Solar</button>
+  </nav>
+</header>
+
+<section class="summary-strip">
+  <div class="summary-card wind-accent">
+    <span class="label">Wind Power Output</span>
+    <span class="value">{{ wind_result.wind_power_w }} W</span>
+    <span class="sub">{{ wind_result.status }} · {{ wind_result.year }}</span>
+  </div>
+  <div class="summary-card wind-accent">
+    <span class="label">Wind Energy (monthly)</span>
+    <span class="value">{{ wind_result.energy_kwh }} kWh</span>
+    <span class="sub">Model: {{ wind_result.model_name }}</span>
+  </div>
+  <div class="summary-card solar-accent">
+    <span class="label">Solar Power Output</span>
+    <span class="value">{{ solar_current.predicted_power_w if solar_current else '—' }} W</span>
+    <span class="sub">{{ solar_current.weather.sky_condition if solar_current else '' }}</span>
+  </div>
+  <div class="summary-card solar-accent">
+    <span class="label">Solar Energy (session)</span>
+    <span class="value">{{ solar_current.energy.energy_kwh if solar_current else '—' }} kWh</span>
+    <span class="sub">Model: {{ solar_current.model_name if solar_current else '—' }}</span>
+  </div>
+  <div class="summary-card combined-accent">
+    <span class="label">Combined Output Now</span>
+    <span class="value">{{ '%.2f'|format(wind_result.wind_power_w + (solar_current.predicted_power_w if solar_current else 0)) }} W</span>
+    <span class="sub">Wind + Solar</span>
+  </div>
+</section>
+
+<main>
+
+<!-- ======================= WIND PANEL ======================= -->
+<section id="wind-panel" class="panel {{ 'active' if active_panel != 'solar' else '' }}">
+  <div class="panel-grid">
+
+    <div class="card form-card">
+      <h2>Wind Energy Lookup</h2>
+      <p class="hint">Dataset covers {{ wind_result.min_year }}–{{ wind_result.max_year }}. Dates in that range use actual recorded averages; later dates are forecast with {{ wind_result.model_name }} (the best model by RMSE).</p>
+      <form method="POST" action="{{ url_for('wind_query') }}">
+        <label>Select date &amp; time
+          <input type="datetime-local" name="selected_datetime" value="{{ wind_result.date }}T{{ wind_result.time }}" required>
+        </label>
+
+        <p class="hint" style="margin:14px 0 6px;">Optional: override with a real reading instead of the dataset/model value</p>
+        <div class="input-grid-2">
+          <label>Wind speed (m/s)
+            <input type="number" step="0.01" name="wind_speed" value="{{ wind_form.get('wind_speed', '') }}" placeholder="optional">
+          </label>
+          <label>Wind direction (°)
+            <input type="number" step="0.1" name="wind_direction" value="{{ wind_form.get('wind_direction', '') }}" placeholder="optional">
+          </label>
+          <label>Temperature (°C)
+            <input type="number" step="0.1" name="temperature" value="{{ wind_form.get('temperature', '') }}" placeholder="optional">
+          </label>
+          <label>Pressure (hPa)
+            <input type="number" step="0.1" name="pressure" value="{{ wind_form.get('pressure', '') }}" placeholder="optional">
+          </label>
+          <label>Humidity (%)
+            <input type="number" step="0.1" name="humidity" value="{{ wind_form.get('humidity', '') }}" placeholder="optional">
+          </label>
+        </div>
+        <button type="submit" class="btn wind-btn">Calculate</button>
+      </form>
+    </div>
+
+    <div class="card result-card">
+      <h2>Result &mdash; {{ wind_result.date }} {{ wind_result.time }}</h2>
+      <span class="status-pill status-{{ wind_result.status|lower|replace(' ', '-') }}">{{ wind_result.status }}</span>
+      <span class="confidence-pill confidence-{{ wind_result.confidence.level }}">{{ wind_result.confidence.label }}</span>
+
+      <div class="metric-stack">
+        <div class="metric-row">
+          <div class="metric-copy"><span>Wind speed</span><strong>{{ '%.2f'|format(wind_result.wind_speed) }} m/s</strong></div>
+          <div class="mini-bar wind-bar"><span style="width: {{ wind_result.speed_pct }}%;"></span></div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-copy"><span>Wind power</span><strong>{{ '%.2f'|format(wind_result.wind_power_w) }} W</strong></div>
+          <div class="mini-bar wind-bar"><span style="width: {{ wind_result.power_pct }}%;"></span></div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-copy"><span>Energy (720h/month)</span><strong>{{ '%.2f'|format(wind_result.energy_kwh) }} kWh</strong></div>
+          <div class="mini-bar wind-bar"><span style="width: {{ wind_result.energy_pct }}%;"></span></div>
+        </div>
+      </div>
+
+      <p class="detail"><strong>Basis:</strong> {{ wind_result.detail }}</p>
+      <p class="detail">{{ wind_result.confidence.note }}</p>
+
+      {% if wind_result.conditions %}
+      <div class="conditions-chips">
+        {% for key, val in wind_result.conditions.items() %}
+        <span class="chip">{{ key|replace('_', ' ')|capitalize }}: {{ val }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="card chart-card">
+      <h2>Average Wind Speed by Year</h2>
+      <p class="hint">Selected year ({{ wind_result.year }}) highlighted in orange.</p>
+      <canvas id="windChart" height="180"></canvas>
+    </div>
+
+    <div class="card chart-card">
+      <h2>Model Comparison &mdash; RMSE</h2>
+      <p class="hint">Lower RMSE is better. {{ wind_result.model_name }} is currently selected.</p>
+      <canvas id="windModelChart" height="180"></canvas>
+    </div>
+
+    <div class="card metrics-card wide">
+      <h2>Model Evaluation (all candidates)</h2>
+      <table>
+        <tr><th>Model</th><th>MAE</th><th>RMSE</th><th>R²</th><th></th></tr>
+        {% for name, m in wind_result.all_models.items() %}
+        <tr class="{{ 'best-row' if m.is_best else '' }}">
+          <td>{{ name }}</td>
+          <td>{{ m.mae }}</td>
+          <td>{{ m.rmse }}</td>
+          <td>{{ m.r2 }}</td>
+          <td>{% if m.is_best %}<span class="chip chip-best">Best</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+
+  </div>
+</section>
+
+<!-- ======================= SOLAR PANEL ======================= -->
+<section id="solar-panel" class="panel {{ 'active' if active_panel == 'solar' else '' }}">
+  <div class="panel-grid">
+
+    <div class="card form-card">
+      <h2>Solar Current-Conditions Estimate</h2>
+      {% if solar_errors %}
+        <ul class="errors">{% for e in solar_errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
+      <form method="POST" action="{{ url_for('solar_current_query') }}">
+        <label>Irradiance (W/m²)
+          <input type="number" step="0.1" name="irradiance_w_m2" value="{{ solar_form.get('irradiance_w_m2', 850) }}" required>
+        </label>
+        <label>Temperature (°C)
+          <input type="number" step="0.1" name="temperature_c" value="{{ solar_form.get('temperature_c', 25) }}" required>
+        </label>
+        <label>Humidity (%)
+          <input type="number" step="0.1" name="humidity_percent" value="{{ solar_form.get('humidity_percent', 55) }}" required>
+        </label>
+        <label>Wind speed (km/h)
+          <input type="number" step="0.1" name="wind_kmh" value="{{ solar_form.get('wind_kmh', 8) }}" required>
+        </label>
+        <label>Cloud cover (%)
+          <input type="number" step="0.1" name="cloud_cover_percent" value="{{ solar_form.get('cloud_cover_percent', 20) }}" required>
+        </label>
+        <label>Panel area (m²)
+          <input type="number" step="0.1" name="panel_area" value="{{ solar_form.get('panel_area', 20) }}" required>
+        </label>
+        <label>Efficiency (0–1)
+          <input type="number" step="0.01" name="efficiency" value="{{ solar_form.get('efficiency', 0.20) }}" required>
+        </label>
+        <label>Operating hours
+          <input type="number" step="0.1" name="operating_hours" value="{{ solar_form.get('operating_hours', 6) }}" required>
+        </label>
+        <button type="submit" class="btn solar-btn">Estimate</button>
+      </form>
+    </div>
+
+    <div class="card result-card">
+      <h2>Current Estimate</h2>
+      {% if solar_current %}
+      <div class="metric-stack">
+        <div class="metric-row">
+          <div class="metric-copy"><span>Predicted power</span><strong>{{ solar_current.predicted_power_w }} W</strong></div>
+          <div class="mini-bar solar-bar"><span style="width: {{ [(solar_current.predicted_power_w / 50), 100] | min }}%;"></span></div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-copy"><span>Physics-based power</span><strong>{{ solar_current.physical_power_w }} W</strong></div>
+          <div class="mini-bar solar-bar"><span style="width: {{ [(solar_current.physical_power_w / 50), 100] | min }}%;"></span></div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-copy"><span>Energy</span><strong>{{ solar_current.energy.energy_kwh }} kWh</strong></div>
+          <div class="mini-bar solar-bar"><span style="width: {{ [(solar_current.energy.energy_kwh * 3), 100] | min }}%;"></span></div>
+        </div>
+      </div>
+      <dl class="kv">
+        <dt>Effective irradiance</dt><dd>{{ solar_current.solar.effective_irradiance_w_m2 }} W/m²</dd>
+        <dt>Sky condition</dt><dd>{{ solar_current.weather.sky_condition }}</dd>
+      </dl>
+      <p class="detail">{{ solar_current.weather.note }}</p>
+      {% else %}
+      <p class="detail">Enter valid values to see an estimate.</p>
+      {% endif %}
+    </div>
+
+    <div class="card form-card">
+      <h2>Date/Time Forecast</h2>
+      <p class="hint">Forecasts are driven only by a future date &amp; time, learned from historical seasonal/diurnal patterns.</p>
+      <form method="POST" action="{{ url_for('solar_forecast_query') }}">
+        <label>Future date &amp; time
+          <input type="datetime-local" name="forecast_datetime" required>
+        </label>
+        <button type="submit" class="btn solar-btn">Forecast</button>
+      </form>
+      {% if solar_forecast_error %}<p class="errors">{{ solar_forecast_error }}</p>{% endif %}
+      {% if solar_forecast %}
+      <dl class="kv">
+        <dt>Forecast for</dt><dd>{{ solar_forecast.forecast_datetime }}</dd>
+        <dt>Predicted temperature</dt><dd>{{ solar_forecast.temperature_c }} °C</dd>
+        <dt>Predicted irradiance</dt><dd>{{ solar_forecast.irradiance_w_m2 }} W/m²</dd>
+        <dt>Expected output</dt><dd>{{ solar_forecast.predicted_output_kw_per_kwp }} kW/kWp</dd>
+      </dl>
+      {% endif %}
+    </div>
+
+    <div class="card chart-card">
+      <h2>Next 24h Forecast (irradiance &amp; output)</h2>
+      <canvas id="solarChart" height="180"></canvas>
+    </div>
+
+    <div class="card metrics-card">
+      <h2>Model Performance</h2>
+      <table>
+        <tr><th>Metric</th><th>Value</th></tr>
+        <tr><td>Best model (current)</td><td>{{ solar_current.model_name if solar_current else '—' }}</td></tr>
+        {% if solar_current %}
+        {% for k, v in solar_current.metrics.items() %}
+        <tr><td>{{ k }}</td><td>{{ v }}</td></tr>
+        {% endfor %}
+        {% endif %}
+        <tr><td>Best model (forecast)</td><td>{{ solar_forecast.model_name if solar_forecast else '—' }}</td></tr>
+      </table>
+    </div>
+
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <p>Combined from the existing Wind Energy Forecasting System and Solar Energy System projects.</p>
+</footer>
+
+<script>
+  window.WIND_CHART = {{ wind_chart|tojson }};
+  window.WIND_MODEL_CHART = {{ wind_model_chart|tojson }};
+  window.SOLAR_CHART = {{ solar_chart|tojson }};
+  window.ACTIVE_PANEL = {{ active_panel|tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
